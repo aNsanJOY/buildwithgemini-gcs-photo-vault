@@ -21,16 +21,21 @@ def generate_domain_video(
     to the GCS Photo Vault bucket.
 
     Args:
-        prompt: Description of the video/scene to generate (e.g., 'Sunset over ocean waves', 'Golden retriever running in autumn leaves').
+        prompt: Highly detailed, vivid description of the video/scene to generate (e.g., 'A golden retriever running through vibrant autumn leaves on a sunny park trail', 'Cinematic video of sunset over ocean waves crashing on a sandy beach'). Always expand the prompt with full user context and visual details.
         tool_context: ToolContext automatically injected by ADK for artifact saving.
 
     Returns:
         Confirmation string containing artifact details, GCS URI, and public video URL.
     """
+    enhanced_prompt = (
+        f"Generate a vivid, high-quality, realistic short video depicting the following specific scene: {prompt}. "
+        f"Ensure all visual elements, subjects, motion, and atmosphere precisely match: {prompt}."
+    )
+
     client = genai.Client(vertexai=True, project=PROJECT_ID, location="global")
     interaction = client.interactions.create(
         model="gemini-omni-flash-preview",
-        input=prompt,
+        input=enhanced_prompt,
     )
 
     if not hasattr(interaction, "output_video") or not interaction.output_video or not interaction.output_video.data:

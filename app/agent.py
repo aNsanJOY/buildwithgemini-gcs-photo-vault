@@ -132,8 +132,7 @@ full_instruction = (
     "5. DATABASE & SEARCH: Use list_photo_memories, get_photo_memory, and save_photo_memory for photo records. "
     "Use calculate_storage_cost_savings to calculate monthly cost savings when moving photo libraries between storage classes. "
     "Use search_public_photos to find free public domain photos. "
-    "Use generate_domain_image to generate AI photos/memories using gemini-3.1-flash-lite-image and store them in GCS & artifacts. "
-    "Use generate_domain_video to generate AI short videos using gemini-omni-flash-preview and store them in GCS & artifacts. "
+    "Use generate_domain_image and generate_domain_video to create AI media. CRITICAL: When calling generate_domain_video or generate_domain_image, ALWAYS construct a rich, highly detailed, descriptive prompt incorporating all relevant user context, topic keywords, subjects, mood, and scene descriptions from the conversation rather than passing short or vague single-word prompt strings. "
     "Use python code execution in your sandbox environment to analyze data, calculate metrics, or run complex media calculations."
 )
 
