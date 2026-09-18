@@ -115,7 +115,84 @@ def save_photo_memory(
     }
 
     db.collection(COLLECTION_NAME).document(photo_id).set(data)
+
+    # Sync GCS blob storage class if object exists
+    try:
+        from google.cloud import storage
+        storage_client = storage.Client(project=FIRESTORE_PROJECT_ID)
+        bucket = storage_client.bucket(f"gcs-photo-vault-{FIRESTORE_PROJECT_ID}")
+        blobs = bucket.list_blobs()
+        for blob in blobs:
+            if photo_id.lower() in blob.name.lower():
+                if blob.storage_class != storage_class.upper():
+                    blob.update_storage_class(storage_class.upper())
+    except Exception as e:
+        print(f"Warning syncing GCS storage class for {photo_id}: {e}")
+
     return {"status": "success", "message": f"Saved photo memory '{photo_id}'", "data": data}
+
+
+def update_photo_storage_class(
+    photo_id: str,
+    new_storage_class: str,
+) -> dict[str, Any]:
+    """Updates the GCS storage class classification of a photo memory in BOTH Firestore and Google Cloud Storage.
+
+    Args:
+        photo_id: Document ID or photo identifier (e.g. 'photo_001', 'kyoto_cherry_blossoms').
+        new_storage_class: Target GCS storage class ('STANDARD', 'NEARLINE', 'COLDLINE', 'ARCHIVE').
+
+    Returns:
+        Status dictionary with confirmation of Firestore and GCS updates.
+    """
+    db = _get_firestore_client()
+    target_class = new_storage_class.upper()
+    
+    # 1. Update Firestore document
+    doc_ref = db.collection(COLLECTION_NAME).document(photo_id)
+    doc = doc_ref.get()
+    found = False
+    
+    if doc.exists:
+        doc_ref.update({"storage_class": target_class})
+        found = True
+    else:
+        # Stream search by photo_id or title
+        docs = db.collection(COLLECTION_NAME).stream()
+        for d in docs:
+            data = d.to_dict() or {}
+            if photo_id.lower() in (
+                d.id.lower(),
+                data.get("photo_id", "").lower(),
+                data.get("title", "").lower(),
+                data.get("filename", "").lower(),
+            ):
+                d.reference.update({"storage_class": target_class})
+                found = True
+
+    # 2. Update GCS blob storage class
+    gcs_updated = False
+    try:
+        from google.cloud import storage
+        storage_client = storage.Client(project=FIRESTORE_PROJECT_ID)
+        bucket = storage_client.bucket(f"gcs-photo-vault-{FIRESTORE_PROJECT_ID}")
+        blobs = bucket.list_blobs()
+        for blob in blobs:
+            if photo_id.lower() in blob.name.lower():
+                if blob.storage_class != target_class:
+                    blob.update_storage_class(target_class)
+                    gcs_updated = True
+    except Exception as e:
+        print(f"Warning updating GCS blob storage class: {e}")
+
+    return {
+        "status": "success",
+        "message": f"Updated storage class for '{photo_id}' to {target_class} in Firestore" + (" and GCS" if gcs_updated else ""),
+        "photo_id": photo_id,
+        "new_storage_class": target_class,
+        "firestore_updated": found,
+        "gcs_updated": gcs_updated,
+    }
 
 
 def delete_photo_memories(photo_ids: list[str]) -> dict[str, Any]:

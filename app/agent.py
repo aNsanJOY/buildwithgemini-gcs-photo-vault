@@ -70,9 +70,11 @@ from google.adk.code_executors import AgentEngineSandboxCodeExecutor
 
 from app.a2ui_utils import a2ui_callback
 from app.tools.firestore_tools import (
+    delete_photo_memories,
     get_photo_memory,
     list_photo_memories,
     save_photo_memory,
+    update_photo_storage_class,
 )
 from app.tools.image_generation_tool import generate_domain_image
 from app.tools.public_photo_tool import search_public_photos
@@ -134,7 +136,8 @@ full_instruction = (
     "3. MOMENTS & EVENTS: Record and recall dates, places, events, topics, celebrations, and categories associated with media.\n"
     "4. STORAGE & PHOTO PREFERENCES: Remember media tagging preferences, favorite categories, and GCS storage class settings "
     "(Standard, Nearline, Coldline, Archive).\n"
-    "5. DATABASE & SEARCH: Use list_photo_memories, get_photo_memory, and save_photo_memory for photo records. "
+    "5. DATABASE & SEARCH: Use list_photo_memories, get_photo_memory, save_photo_memory, update_photo_storage_class, and delete_photo_memories for photo records. "
+    "CRITICAL: When updating storage class classification, ALWAYS call update_photo_storage_class to keep both GCS storage class and Firestore (Firebase) database updated. "
     "Use calculate_storage_cost_savings to calculate monthly cost savings when moving photo libraries between storage classes. "
     "Use search_public_photos to find free public domain photos. "
     "Use generate_domain_image and generate_domain_video to create AI media. CRITICAL: When calling generate_domain_video or generate_domain_image, ALWAYS construct a rich, highly detailed, descriptive prompt incorporating all relevant user context, topic keywords, subjects, mood, and scene descriptions from the conversation rather than passing short or vague single-word prompt strings. "
@@ -154,6 +157,8 @@ root_agent = Agent(
         list_photo_memories,
         get_photo_memory,
         save_photo_memory,
+        update_photo_storage_class,
+        delete_photo_memories,
         calculate_storage_cost_savings,
         search_public_photos,
         generate_domain_image,

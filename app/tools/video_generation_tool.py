@@ -8,8 +8,9 @@ from google.cloud import storage
 from google.genai import types
 from google.adk.tools import ToolContext
 
-PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-01-881fc83d76ea")
-BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME", f"gcs-photo-vault-{PROJECT_ID}")
+RAW_PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-01-881fc83d76ea")
+PROJECT_ID = "qwiklabs-gcp-01-881fc83d76ea" if (not RAW_PROJECT_ID or RAW_PROJECT_ID.isdigit()) else RAW_PROJECT_ID
+BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME") or f"gcs-photo-vault-{PROJECT_ID}"
 
 
 def generate_domain_video(
@@ -18,8 +19,8 @@ def generate_domain_video(
 ) -> str:
     """Generates a short video for photo memories or domain topics using Google's Omni model (gemini-omni-flash-preview) in the global region.
 
-    Saves the generated video as an artifact for Playground display and uploads the video bytes directly
-    to the GCS Photo Vault bucket.
+    Saves the generated video as an artifact for Playground display, uploads the video bytes directly
+    to the GCS Photo Vault bucket, and saves the video record in Firestore.
 
     Args:
         prompt: Highly detailed, vivid description of the video/scene to generate (e.g., 'A golden retriever running through vibrant autumn leaves on a sunny park trail', 'Cinematic video of sunset over ocean waves crashing on a sandy beach'). Always expand the prompt with full user context and visual details.
@@ -67,6 +68,28 @@ def generate_domain_video(
 
     gcs_uri = f"gs://{BUCKET_NAME}/{blob_name}"
     public_url = f"https://storage.googleapis.com/{BUCKET_NAME}/{blob_name}"
+
+    # 3. Save memory record in Firestore (Firebase)
+    try:
+        from google.cloud import firestore
+        db = firestore.Client(project=PROJECT_ID)
+        photo_id = f"generated_video_{timestamp}"
+        title = f"Generated Video: {prompt[:30].strip()}"
+        doc_data = {
+            "photo_id": photo_id,
+            "filename": filename,
+            "title": title,
+            "gcs_uri": gcs_uri,
+            "public_url": public_url,
+            "storage_class": "STANDARD",
+            "special_moment": "Generated Video Memory",
+            "tagged_friends": [],
+            "tags": ["generated", "video", "ai"],
+            "uploaded_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        db.collection("photo_memories").document(photo_id).set(doc_data)
+    except Exception as e:
+        print(f"Warning: Could not save generated video to Firestore: {e}")
 
     return (
         f"Successfully generated video for prompt: '{prompt}'\n"

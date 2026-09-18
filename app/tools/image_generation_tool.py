@@ -7,8 +7,9 @@ from google.cloud import storage
 from google.genai import types
 from google.adk.tools import ToolContext
 
-PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-01-881fc83d76ea")
-BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME", f"gcs-photo-vault-{PROJECT_ID}")
+RAW_PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-01-881fc83d76ea")
+PROJECT_ID = "qwiklabs-gcp-01-881fc83d76ea" if (not RAW_PROJECT_ID or RAW_PROJECT_ID.isdigit()) else RAW_PROJECT_ID
+BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME") or f"gcs-photo-vault-{PROJECT_ID}"
 
 
 def generate_domain_image(
@@ -17,8 +18,8 @@ def generate_domain_image(
 ) -> str:
     """Generates an image for photo memories or scenery using gemini-3.1-flash-lite-image in the global region.
 
-    Saves the generated image as an artifact for Playground display and uploads the image bytes directly
-    to the GCS Photo Vault bucket.
+    Saves the generated image as an artifact for Playground display, uploads the image bytes directly
+    to the GCS Photo Vault bucket, and saves the photo record in Firestore.
 
     Args:
         prompt: Description of the image/scene to generate (e.g., 'Kyoto cherry blossoms at sunset', 'Yosemite mountain hike').
@@ -61,6 +62,28 @@ def generate_domain_image(
 
     gcs_uri = f"gs://{BUCKET_NAME}/{blob_name}"
     public_url = f"https://storage.googleapis.com/{BUCKET_NAME}/{blob_name}"
+
+    # 3. Save memory record in Firestore (Firebase)
+    try:
+        from google.cloud import firestore
+        db = firestore.Client(project=PROJECT_ID)
+        photo_id = f"generated_{timestamp}"
+        title = f"Generated: {prompt[:30].strip()}"
+        doc_data = {
+            "photo_id": photo_id,
+            "filename": filename,
+            "title": title,
+            "gcs_uri": gcs_uri,
+            "public_url": public_url,
+            "storage_class": "STANDARD",
+            "special_moment": "Generated Photo Memory",
+            "tagged_friends": [],
+            "tags": ["generated", "ai"],
+            "uploaded_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        db.collection("photo_memories").document(photo_id).set(doc_data)
+    except Exception as e:
+        print(f"Warning: Could not save generated image to Firestore: {e}")
 
     return (
         f"Successfully generated photo for prompt: '{prompt}'\n"
