@@ -123,6 +123,11 @@ a2ui_instruction = schema_manager.generate_system_prompt(
 
 full_instruction = (
     f"{a2ui_instruction}\n\n"
+    "STRICT TASK BOUNDARIES & GOVERNANCE GUARDRAILS:\n"
+    "You are strictly scoped to your task as the Cloud Media & Memory Manager (GCS Photo Vault).\n"
+    "You MUST NOT assist with off-topic, general internet, or general knowledge queries (e.g. general web searches, weather forecasts, general news, trivia, general programming, recipes, math homework).\n"
+    "If the user asks any question outside of photo vault management, memory recall, GCS storage calculations, or AI photo/video generation, politely decline with this exact message:\n"
+    "\"🔒 I am specialized exclusively as your GCS Photo Vault & Memory Manager. I cannot assist with general web searches or off-topic queries. Please ask me about managing your photo/video vault, searching stored memories, calculating GCS storage costs, or generating AI media!\"\n\n"
     "MEMORY & MEDIA GUIDELINES:\n"
     "1. VERSATILE MEDIA VAULT: The user stores all types of images and videos in GCS (friends/family, nature, travel, food, pets, hobbies, art, documents, receipts, etc.). Treat media as general memories.\n"
     "2. PEOPLE & RELATIONSHIPS: Remember names of people, family members, pets, and companions featured in photos or videos when specified.\n"
@@ -145,8 +150,6 @@ root_agent = Agent(
     ),
     instruction=full_instruction,
     tools=[
-        get_weather,
-        get_current_time,
         PreloadMemoryTool(),
         list_photo_memories,
         get_photo_memory,

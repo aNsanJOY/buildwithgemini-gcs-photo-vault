@@ -190,11 +190,12 @@ async def chat(req: Request):
     return JSONResponse({"parts": parts})
 
 
+import os
 import datetime
 from google.cloud import storage, firestore
 
-PROJECT_ID = "qwiklabs-gcp-03-bfaa22c3fd9c"
-BUCKET_NAME = "gcs-photo-vault-qwiklabs-gcp-03-bfaa22c3fd9c"
+PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-01-881fc83d76ea")
+BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME", f"gcs-photo-vault-{PROJECT_ID}")
 
 
 @app.post("/upload")
@@ -255,6 +256,129 @@ async def upload_photos(
             "uploaded": uploaded_records,
         }
     )
+
+
+@app.post("/archive-coldline")
+async def archive_to_coldline():
+    """Transitions all photo memories in Firestore and GCS to COLDLINE storage class on UI close."""
+    try:
+        db = firestore.Client(project=PROJECT_ID)
+        storage_client = storage.Client(project=PROJECT_ID)
+        bucket = storage_client.bucket(BUCKET_NAME)
+
+        updated_count = 0
+        docs = db.collection("photo_memories").stream()
+        for doc in docs:
+            doc.reference.update({"storage_class": "COLDLINE"})
+            updated_count += 1
+
+        try:
+            blobs = bucket.list_blobs()
+            for blob in blobs:
+                if blob.storage_class != "COLDLINE":
+                    blob.update_storage_class("COLDLINE")
+        except Exception as e:
+            print(f"GCS blob storage class transition warning: {e}")
+
+        return JSONResponse(
+            {
+                "status": "success",
+                "message": f"Migrated {updated_count} photo memories to COLDLINE storage class.",
+                "count": updated_count,
+            }
+        )
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+
+@app.post("/delete-photos")
+async def delete_photos_endpoint(req: Request):
+    """Deletes multiple photo/video memory records permanently from both Firestore and GCS bucket."""
+    try:
+        body = await req.json()
+        photo_ids = body.get("photo_ids") or []
+        photo_urls = body.get("photo_urls") or []
+
+        db = firestore.Client(project=PROJECT_ID)
+        storage_client = storage.Client(project=PROJECT_ID)
+        bucket = storage_client.bucket(BUCKET_NAME)
+
+        deleted_firestore_count = 0
+        deleted_gcs_count = 0
+
+        # 1. Delete matching Firestore documents & associated GCS blobs
+        all_docs = list(db.collection("photo_memories").stream())
+        for doc in all_docs:
+            data = doc.to_dict() or {}
+            doc_id = doc.id
+            pid = data.get("photo_id", doc_id)
+            purl = data.get("public_url", "")
+            guri = data.get("gcs_uri", "")
+
+            should_delete = (
+                doc_id in photo_ids
+                or pid in photo_ids
+                or purl in photo_urls
+                or guri in photo_urls
+                or any(
+                    target
+                    and (target in purl or target in guri or target in pid or target in doc_id)
+                    for target in photo_ids + photo_urls
+                )
+            )
+
+            if should_delete:
+                doc.reference.delete()
+                deleted_firestore_count += 1
+
+                # Extract and delete GCS Blob
+                target_url = purl or guri or f"{pid}.jpg"
+                blob_name = None
+                if f"/{BUCKET_NAME}/" in target_url:
+                    blob_name = target_url.split(f"/{BUCKET_NAME}/")[-1]
+                elif target_url.startswith("gs://"):
+                    blob_name = target_url.replace(f"gs://{BUCKET_NAME}/", "")
+                else:
+                    blob_name = target_url.split("/")[-1]
+
+                if blob_name:
+                    try:
+                        blob = bucket.blob(blob_name)
+                        if blob.exists():
+                            blob.delete()
+                            deleted_gcs_count += 1
+                    except Exception as err:
+                        print(f"GCS deletion notice for {blob_name}: {err}")
+
+        # 2. Direct GCS Object Deletion for any uploaded blobs
+        for raw_url in photo_urls:
+            blob_name = None
+            if f"/{BUCKET_NAME}/" in raw_url:
+                blob_name = raw_url.split(f"/{BUCKET_NAME}/")[-1]
+            elif raw_url.startswith("gs://"):
+                blob_name = raw_url.replace(f"gs://{BUCKET_NAME}/", "")
+            elif "/" in raw_url:
+                blob_name = raw_url.split("/")[-1]
+
+            if blob_name:
+                try:
+                    blob = bucket.blob(blob_name)
+                    if blob.exists():
+                        blob.delete()
+                        deleted_gcs_count += 1
+                except Exception as err:
+                    print(f"Direct GCS deletion notice for {blob_name}: {err}")
+
+        return JSONResponse(
+            {
+                "status": "success",
+                "message": f"Successfully deleted {deleted_firestore_count} Firestore memory record(s) and {deleted_gcs_count} GCS storage object(s).",
+                "deleted_firestore": deleted_firestore_count,
+                "deleted_gcs": deleted_gcs_count,
+            }
+        )
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")

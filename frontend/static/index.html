@@ -69,10 +69,11 @@
   .quick-actions {
     display: flex;
     gap: 0.6rem;
-    padding: 0.8rem 1.5rem;
+    padding: 0.8rem 2rem;
     background: rgba(15, 23, 42, 0.7);
     border-bottom: 1px solid var(--border-color);
     overflow-x: auto;
+    width: 100%;
   }
   .action-chip {
     background: var(--card-bg);
@@ -187,15 +188,15 @@
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 16px;
-    max-width: 820px;
     width: 95%;
-    max-height: 90vh;
-    overflow-y: auto;
+    max-width: 900px;
     padding: 1.5rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    max-height: 90vh;
+    overflow-y: auto;
   }
   .lightbox-media {
     width: 100%;
@@ -251,38 +252,85 @@
   }
   .toast {
     background: rgba(30, 41, 59, 0.95);
-    backdrop-filter: blur(12px);
     border: 1px solid var(--accent-blue);
     color: var(--text-primary);
-    padding: 0.8rem 1.2rem;
+    padding: 0.75rem 1.2rem;
     border-radius: 12px;
-    font-size: 0.9rem;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+    font-size: 0.88rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
     animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
   }
   @keyframes slideIn {
     from { transform: translateX(100%); opacity: 0; }
     to { transform: translateX(0); opacity: 1; }
   }
 
+  /* Themed Glassmorphic Scrollbars */
+  #log::-webkit-scrollbar,
+  body::-webkit-scrollbar,
+  .quick-actions::-webkit-scrollbar,
+  .lightbox-card::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+  }
+  #log::-webkit-scrollbar-track,
+  body::-webkit-scrollbar-track,
+  .quick-actions::-webkit-scrollbar-track,
+  .lightbox-card::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: 8px;
+  }
+  #log::-webkit-scrollbar-thumb,
+  body::-webkit-scrollbar-thumb,
+  .quick-actions::-webkit-scrollbar-thumb,
+  .lightbox-card::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(56, 189, 248, 0.5), rgba(129, 140, 248, 0.5));
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  #log::-webkit-scrollbar-thumb:hover,
+  body::-webkit-scrollbar-thumb:hover,
+  .quick-actions::-webkit-scrollbar-thumb:hover,
+  .lightbox-card::-webkit-scrollbar-hover {
+    background: linear-gradient(180deg, rgba(56, 189, 248, 0.9), rgba(129, 140, 248, 0.9));
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+  }
   #log {
     flex: 1;
     overflow-y: auto;
-    padding: 1.5rem;
-    max-width: 860px;
+    padding: 1.5rem 2rem;
+    max-width: 100%;
     width: 100%;
-    margin: 0 auto;
+    margin: 0;
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(56, 189, 248, 0.5) rgba(15, 23, 42, 0.6);
   }
-  .msg { display: flex; flex-direction: column; animation: fadeIn 0.2s ease-out; }
+  .clear-chat-btn {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #f87171;
+    font-size: 0.75rem;
+    padding: 0.3rem 0.65rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .clear-chat-btn:hover {
+    background: rgba(239, 68, 68, 0.3);
+    border-color: #f87171;
+    transform: translateY(-1px);
+  }
+  .msg { display: flex; flex-direction: column; animation: fadeIn 0.2s ease-out; width: 100%; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
   .msg.user { align-items: flex-end; }
-  .msg.agent { align-items: flex-start; }
+  .msg.agent { align-items: flex-start; width: 100%; }
 
   .bubble {
     display: inline-block;
@@ -291,7 +339,7 @@
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     color: var(--text-primary);
-    max-width: 88%;
+    max-width: 95%;
     line-height: 1.5;
     font-size: 0.95rem;
     white-space: pre-wrap;
@@ -359,6 +407,7 @@
     width: 100%;
   }
   .photo-card {
+    position: relative;
     background: #1e293b;
     border: 1px solid var(--border-color);
     border-radius: 12px;
@@ -367,6 +416,66 @@
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
     cursor: pointer;
   }
+  .photo-card.selected {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 18px rgba(239, 68, 68, 0.5) !important;
+  }
+  .photo-select-checkbox {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 22px;
+    height: 22px;
+    accent-color: #ef4444;
+    cursor: pointer;
+    z-index: 10;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  }
+  #selectionBar {
+    display: none;
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(30, 41, 59, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid #ef4444;
+    padding: 0.65rem 1.4rem;
+    border-radius: 999px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    z-index: 1500;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  #selectionBar.active { display: flex; }
+  .btn-delete-selected {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: #fff;
+    border: none;
+    padding: 0.45rem 1rem;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.2s;
+  }
+  .btn-delete-selected:hover {
+    transform: scale(1.03);
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4);
+  }
+  .btn-cancel-selected {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 0.45rem 0.8rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    cursor: pointer;
+  }
+  .btn-cancel-selected:hover { color: var(--text-primary); border-color: var(--text-secondary); }
   .photo-card:hover {
     transform: translateY(-3px);
     border-color: var(--accent-blue);
@@ -440,34 +549,34 @@
       <button onclick="signOutGoogle()" style="padding:0.3rem 0.7rem; font-size:0.75rem; background:rgba(239,68,68,0.2); color:#f87171; border:1px solid rgba(239,68,68,0.4); border-radius:999px; margin-left:0.4rem">Sign Out</button>
     </div>
     <div id="g_id_onload"
-         data-client_id="104993709195-web-app.apps.googleusercontent.com"
+         data-client_id="800181753965-aljjt3ml80sdjcbptr09f27sp6n7tbt3.apps.googleusercontent.com"
          data-callback="handleGoogleSignIn"
          data-auto_prompt="false">
     </div>
-    <div id="googleSignInBtn" class="g_id_signin" data-type="standard" data-shape="pill" data-theme="filled_black" data-text="signin_with" data-size="medium"></div>
-    <div class="status-badge">● Agent Engine</div>
+    <button class="clear-chat-btn" onclick="clearChatHistory()" title="Clear saved chat history from browser">🗑️ Clear Chat</button>
+    <div class="status-badge" title="Auto-Archiving images to Coldline on UI exit">● Agent Engine (Coldline Auto-Archive)</div>
   </div>
 </header>
 
 <div class="quick-actions">
-  <button class="action-chip upload-btn" onclick="openUploadModal()">
+  <button class="action-chip upload-btn" onclick="openUploadModal()" title="Upload photos from your device">
     <span>☁️</span> Upload Local Photos
   </button>
-  <button class="action-chip" onclick="sendQuick('Generate a short video of a serene waterfall in a lush forest')">
+  <button class="action-chip" onclick="actionGenerateVideo()" title="Generate AI video based on current input or conversation context">
     <span>🎬</span> Generate AI Video
   </button>
-  <button class="action-chip" onclick="sendQuick('Generate an AI photo of Kyoto cherry blossoms at sunset')">
+  <button class="action-chip" onclick="actionGeneratePhoto()" title="Generate AI photo based on current input or conversation context">
     <span>🎨</span> Generate AI Photo
   </button>
-  <button class="action-chip" onclick="sendQuick('Calculate monthly storage cost savings moving 500 GB from Standard to Coldline')">
+  <button class="action-chip" onclick="actionStorageCalc()" title="Calculate GCS tier savings based on current context">
     <span>📊</span> Storage Calculator
   </button>
-  <button class="action-chip" onclick="sendQuick('List my photo memories from Firestore')">
+  <button class="action-chip" onclick="actionPhotoMemories()" title="Query Firestore memories related to current context">
     <span>📸</span> Photo Memories
   </button>
-  <button class="action-chip" onclick="sendQuick('Show photos with storage class COLDLINE.')">
+  <button class="action-chip" onclick="actionColdlineTier()" title="Filter Coldline storage photos related to current context">
     <span>❄️</span> Coldline Tier
-  </button>
+  </button>  
 </div>
 
 <!-- Upload Modal -->
@@ -515,6 +624,32 @@
           <span>⬇️</span> Open Original / Download
         </a>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Floating Multi-Photo Selection Bar -->
+<div id="selectionBar">
+  <div><span id="selectedCount">0</span> Photos Selected</div>
+  <button class="btn-delete-selected" onclick="deleteSelectedPhotos()">🗑️ Delete Selected</button>
+  <button class="btn-cancel-selected" onclick="clearSelection()">Cancel</button>
+</div>
+
+<!-- Custom Confirmation Modal for Multi-Photo Deletion -->
+<div id="confirmDeleteModal" class="modal-overlay" onclick="closeConfirmModal(event)">
+  <div class="modal-card" style="max-width: 440px; text-align: center; border-color: rgba(239, 68, 68, 0.4);" onclick="event.stopPropagation()">
+    <div style="font-size: 2.5rem; margin-bottom: 0.5rem">⚠️</div>
+    <div class="modal-title" style="color: #ef4444; font-size: 1.25rem;">Confirm Permanent Deletion</div>
+    <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0.8rem 0 1.2rem 0; line-height: 1.5;">
+      Are you sure you want to delete <strong id="confirmDeleteCount" style="color: var(--text-primary)">0</strong> selected item(s)?
+      <br><br>
+      <span style="color: #f87171; font-size: 0.82rem;">
+        ⚡ This action will permanently remove these files from both <strong>Google Cloud Storage (GCS Vault)</strong> and <strong>Google Cloud Firestore (Metadata DB)</strong>.
+      </span>
+    </p>
+    <div style="display: flex; gap: 0.8rem; justify-content: center;">
+      <button class="btn-cancel-selected" onclick="closeConfirmModal()" style="padding: 0.6rem 1.2rem; font-size: 0.9rem;">Cancel</button>
+      <button class="btn-delete-selected" onclick="executeDeleteSelected()" style="padding: 0.6rem 1.2rem; font-size: 0.9rem;">🔥 Yes, Delete Permanently</button>
     </div>
   </div>
 </div>
@@ -744,10 +879,60 @@ function bubble(who) {
   return b;
 }
 
+function getRecentContext() {
+  const userInput = input.value.trim();
+  if (userInput) return userInput;
+
+  const messages = Array.from(document.querySelectorAll("#log .bubble"));
+  if (messages.length > 0) {
+    const lastTexts = messages.slice(-3).map(m => m.textContent).join(" ");
+    const cleaned = lastTexts
+      .replace(/Error:|Uploaded|Successfully|HTTP|Google Sign-In|Lock/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (cleaned.length > 0) {
+      return cleaned.slice(0, 150);
+    }
+  }
+  return null;
+}
+
 function sendQuick(txt) {
   input.value = txt;
   form.dispatchEvent(new Event('submit'));
 }
+
+function actionGenerateVideo() {
+  const ctx = getRecentContext();
+  if (ctx) {
+    sendQuick(`Generate a short video based on this context: ${ctx}`);
+  } else {
+    sendQuick("Generate a short video of a serene waterfall in a lush forest");
+  }
+}
+
+function actionGeneratePhoto() {
+  const ctx = getRecentContext();
+  if (ctx) {
+    sendQuick(`Generate an AI photo based on this context: ${ctx}`);
+  } else {
+    sendQuick("Generate an AI photo of Kyoto cherry blossoms at sunset");
+  }
+}
+
+function actionStorageCalc() {
+  sendQuick("Calculate monthly storage cost savings in INR moving 500 GB from Standard to Coldline");
+  
+}
+
+function actionPhotoMemories() {
+ sendQuick("List my photo memories from Firestore");
+}
+
+function actionColdlineTier() {
+  sendQuick("Show photos with storage class COLDLINE from Firestore.");
+}
+
 
 /* ----------------------------------------------------------------------------
  * A2UI mini-renderer (v0.8 Basic Catalog subset).
@@ -879,7 +1064,22 @@ function renderReply(b, parts) {
       else if (textStr.includes("ARCHIVE")) tier = "ARCHIVE";
 
       const photoCard = el("div", "photo-card");
-      photoCard.onclick = () => openLightbox(httpUrl, filename, isVideo, tier);
+      photoCard.dataset.url = httpUrl;
+      photoCard.dataset.filename = filename;
+
+      const checkbox = el("input", "photo-select-checkbox");
+      checkbox.type = "checkbox";
+      checkbox.onclick = (e) => {
+        e.stopPropagation();
+        photoCard.classList.toggle("selected", checkbox.checked);
+        updateSelectionBar();
+      };
+      photoCard.appendChild(checkbox);
+
+      photoCard.onclick = (e) => {
+        if (e.target.classList.contains("photo-select-checkbox")) return;
+        openLightbox(httpUrl, filename, isVideo, tier);
+      };
 
       if (isVideo) {
         const video = el("video");
@@ -922,11 +1122,167 @@ function renderReply(b, parts) {
   log.scrollTop = log.scrollHeight;
 }
 
+// --- Chat Persistence & Coldline Exit Lifecycle Handlers ---
+function saveChatHistory() {
+  try {
+    localStorage.setItem("vault_chat_history", log.innerHTML);
+  } catch (e) {
+    console.warn("Could not save chat history to localStorage", e);
+  }
+}
+
+function restoreChatHistory() {
+  try {
+    const saved = localStorage.getItem("vault_chat_history");
+    if (saved && saved.trim()) {
+      log.innerHTML = saved;
+      log.scrollTop = log.scrollHeight;
+    }
+  } catch (e) {
+    console.warn("Could not restore chat history from localStorage", e);
+  }
+}
+
+function clearChatHistory() {
+  try {
+    localStorage.removeItem("vault_chat_history");
+    log.innerHTML = "";
+    showToast("Chat history cleared");
+  } catch (e) {
+    console.warn("Could not clear chat history", e);
+  }
+}
+
+function archiveColdlineOnClose() {
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon('/archive-coldline');
+  } else {
+    fetch('/archive-coldline', { method: 'POST', keepalive: true });
+  }
+}
+
+window.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    archiveColdlineOnClose();
+  }
+});
+
+window.addEventListener('beforeunload', () => {
+  archiveColdlineOnClose();
+});
+
+// Delegate click and hover events on #log so restored media items are fully interactive after page reloads
+log.addEventListener('click', (ev) => {
+  const card = ev.target.closest('.photo-card');
+  if (card) {
+    const img = card.querySelector('img');
+    const video = card.querySelector('video');
+    const src = img ? img.src : (video ? video.src : null);
+    if (src) {
+      const isVideo = !!video || src.endsWith('.mp4') || src.includes('/generated_videos/');
+      const filename = src.split('/').pop();
+      const badge = card.querySelector('.badge-tier');
+      const tier = badge ? badge.textContent.split('•').pop().trim() : 'STANDARD';
+      openLightbox(src, filename, isVideo, tier);
+    }
+    return;
+  }
+  if (ev.target.classList.contains('a2img')) {
+    openLightbox(ev.target.src, ev.target.alt || "Photo Preview");
+  }
+});
+
+log.addEventListener('mouseover', (ev) => {
+  if (ev.target.tagName === 'VIDEO' && ev.target.closest('.photo-card')) {
+    ev.target.play().catch(() => {});
+  }
+});
+
+log.addEventListener('mouseout', (ev) => {
+  if (ev.target.tagName === 'VIDEO' && ev.target.closest('.photo-card')) {
+    ev.target.pause();
+  }
+});
+
+// --- Multi-Photo Selection & Batch Deletion Handlers ---
+function updateSelectionBar() {
+  const checkboxes = document.querySelectorAll(".photo-select-checkbox:checked");
+  const bar = document.getElementById("selectionBar");
+  const countSpan = document.getElementById("selectedCount");
+  if (checkboxes.length > 0) {
+    countSpan.textContent = checkboxes.length;
+    bar.classList.add("active");
+  } else {
+    bar.classList.remove("active");
+  }
+}
+
+function clearSelection() {
+  const checkboxes = document.querySelectorAll(".photo-select-checkbox");
+  checkboxes.forEach(cb => {
+    cb.checked = false;
+    const card = cb.closest(".photo-card");
+    if (card) card.classList.remove("selected");
+  });
+  updateSelectionBar();
+}
+
+function openConfirmModal(count) {
+  document.getElementById("confirmDeleteCount").textContent = count;
+  document.getElementById("confirmDeleteModal").classList.add("active");
+}
+
+function closeConfirmModal(ev) {
+  if (ev && ev.target !== ev.currentTarget && ev.target.className !== "modal-close") return;
+  document.getElementById("confirmDeleteModal").classList.remove("active");
+}
+
+function deleteSelectedPhotos() {
+  const selectedCheckboxes = document.querySelectorAll(".photo-select-checkbox:checked");
+  if (selectedCheckboxes.length === 0) return;
+  openConfirmModal(selectedCheckboxes.length);
+}
+
+async function executeDeleteSelected() {
+  closeConfirmModal();
+  const selectedCheckboxes = Array.from(document.querySelectorAll(".photo-select-checkbox:checked"));
+  if (selectedCheckboxes.length === 0) return;
+
+  const count = selectedCheckboxes.length;
+  const selectedCards = selectedCheckboxes.map(cb => cb.closest(".photo-card")).filter(Boolean);
+  const photoUrls = selectedCards.map(card => card.dataset.url).filter(Boolean);
+  const photoIds = selectedCards.map(card => card.dataset.filename || "").filter(Boolean);
+
+  try {
+    const res = await fetch("/delete-photos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photo_ids: photoIds, photo_urls: photoUrls })
+    });
+    const data = await res.json();
+    if (data.status === "success") {
+      showToast(`🗑️ Deleted ${data.deleted_firestore || count} record(s) from Firestore & ${data.deleted_gcs || count} object(s) from GCS Vault!`);
+      selectedCards.forEach(card => card.remove());
+      clearSelection();
+      saveChatHistory();
+    } else {
+      showToast("Error deleting photos: " + (data.message || "Unknown error"));
+    }
+  } catch (err) {
+    showToast("Error deleting photos: " + err.message);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  restoreChatHistory();
+});
+
 form.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const text = input.value.trim();
   if (!text) return;
   bubble("user").textContent = text;
+  saveChatHistory();
   input.value = "";
 
   // Check if request requires user-specific details (memories, personal photos, uploaded media)
@@ -942,6 +1298,7 @@ form.addEventListener("submit", async (ev) => {
         To access or save your personal photo memories, tagged friends, and uploaded media, please sign in with your Google Account using the button in the top right.
       </div>
     `;
+    saveChatHistory();
     if (window.google && google.accounts && google.accounts.id) {
       google.accounts.id.prompt();
     }
@@ -961,8 +1318,10 @@ form.addEventListener("submit", async (ev) => {
     try { data = JSON.parse(raw); }
     catch { throw new Error(`Server returned non-JSON (HTTP ${res.status}). ${raw.slice(0, 300)}`); }
     renderReply(b, data.parts || []);
+    saveChatHistory();
   } catch (e) {
     b.textContent = "Error: " + e.message;
+    saveChatHistory();
   }
 });
 </script>

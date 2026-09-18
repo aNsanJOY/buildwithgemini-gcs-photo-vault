@@ -1,14 +1,15 @@
 """Video generation tool for GCS Photo Vault using gemini-omni-flash-preview."""
 
 import base64
+import os
 import time
 from google import genai
 from google.cloud import storage
 from google.genai import types
 from google.adk.tools import ToolContext
 
-BUCKET_NAME = "gcs-photo-vault-qwiklabs-gcp-03-bfaa22c3fd9c"
-PROJECT_ID = "qwiklabs-gcp-03-bfaa22c3fd9c"
+PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-01-881fc83d76ea")
+BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME", f"gcs-photo-vault-{PROJECT_ID}")
 
 
 def generate_domain_video(

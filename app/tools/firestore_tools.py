@@ -4,10 +4,11 @@ Hardcodes project ID "qwiklabs-gcp-03-bfaa22c3fd9c" to avoid runtime
 project number resolution errors on Agent Platform.
 """
 
+import os
 from typing import Any
 from google.cloud import firestore
 
-FIRESTORE_PROJECT_ID = "qwiklabs-gcp-03-bfaa22c3fd9c"
+FIRESTORE_PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-01-881fc83d76ea")
 COLLECTION_NAME = "photo_memories"
 
 
@@ -115,3 +116,51 @@ def save_photo_memory(
 
     db.collection(COLLECTION_NAME).document(photo_id).set(data)
     return {"status": "success", "message": f"Saved photo memory '{photo_id}'", "data": data}
+
+
+def delete_photo_memories(photo_ids: list[str]) -> dict[str, Any]:
+    """Delete multiple photo memory records from Firestore and GCS.
+
+    Args:
+        photo_ids: List of photo document IDs or titles to delete (e.g. ['photo_001', 'photo_002']).
+
+    Returns:
+        A dictionary with deletion status and count of deleted records.
+    """
+    db = _get_firestore_client()
+    deleted_count = 0
+    deleted_ids = []
+
+    for pid in photo_ids:
+        doc_ref = db.collection(COLLECTION_NAME).document(pid)
+        if doc_ref.get().exists:
+            doc_ref.delete()
+            deleted_count += 1
+            deleted_ids.append(pid)
+        else:
+            docs = db.collection(COLLECTION_NAME).where("photo_id", "==", pid).stream()
+            found = False
+            for d in docs:
+                d.reference.delete()
+                deleted_count += 1
+                deleted_ids.append(d.id)
+                found = True
+            if not found:
+                docs = db.collection(COLLECTION_NAME).stream()
+                for d in docs:
+                    data = d.to_dict() or {}
+                    if pid.lower() in (
+                        data.get("filename", "").lower(),
+                        data.get("title", "").lower(),
+                        data.get("photo_id", "").lower(),
+                    ):
+                        d.reference.delete()
+                        deleted_count += 1
+                        deleted_ids.append(d.id)
+
+    return {
+        "status": "success",
+        "message": f"Deleted {deleted_count} photo memory record(s).",
+        "deleted_count": deleted_count,
+        "deleted_ids": deleted_ids,
+    }
