@@ -991,9 +991,16 @@ function buildNode(id, comps, seen) {
       if (src.startsWith("gs://")) {
         src = src.replace("gs://", "https://storage.googleapis.com/");
       }
+      src = src.replace(/[\*\.\,><`\]]+$/, "");
       if (!/^https?:\/\//i.test(src)) return null;
       const img = el("img", "a2img"); img.src = src; img.alt = boundStr(props.alt) || "Photo";
-      img.onclick = () => openLightbox(src, boundStr(props.alt) || "Photo Preview");
+      img.onerror = () => {
+        if (!img.dataset.proxied) {
+          img.dataset.proxied = "true";
+          img.src = "/image_proxy?url=" + encodeURIComponent(src);
+        }
+      };
+      img.onclick = () => openLightbox(img.src, boundStr(props.alt) || "Photo Preview");
       return img;
     }
     case "Icon": {
@@ -1075,9 +1082,10 @@ function renderReply(b, parts) {
   if (foundUrls.length > 0) {
     const grid = el("div", "photo-grid");
     foundUrls.forEach(rawUrl => {
-      const httpUrl = rawUrl.startsWith("gs://")
+      let httpUrl = rawUrl.startsWith("gs://")
         ? rawUrl.replace("gs://", "https://storage.googleapis.com/")
         : rawUrl;
+      httpUrl = httpUrl.replace(/[\*\.\,><`\]]+$/, "");
 
       const filename = httpUrl.split("/").pop();
       const isVideo = httpUrl.endsWith(".mp4") || httpUrl.includes("/generated_videos/");
@@ -1102,7 +1110,8 @@ function renderReply(b, parts) {
 
       photoCard.onclick = (e) => {
         if (e.target.classList.contains("photo-select-checkbox")) return;
-        openLightbox(httpUrl, filename, isVideo, tier);
+        const currentSrc = photoCard.querySelector("img") ? photoCard.querySelector("img").src : httpUrl;
+        openLightbox(currentSrc, filename, isVideo, tier);
       };
 
       if (isVideo) {
@@ -1118,7 +1127,12 @@ function renderReply(b, parts) {
         img.src = httpUrl;
         img.alt = filename;
         img.onerror = () => {
-          img.src = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&auto=format&fit=crop';
+          if (!img.dataset.proxied) {
+            img.dataset.proxied = "true";
+            img.src = "/image_proxy?url=" + encodeURIComponent(httpUrl);
+          } else {
+            img.src = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&auto=format&fit=crop';
+          }
         };
         photoCard.appendChild(img);
       }

@@ -44,7 +44,7 @@ from a2a.types import (
     TextPart,
     TransportProtocol,
 )
-from fastapi import FastAPI, Request, UploadFile, File, Form
+from fastapi import FastAPI, Request, UploadFile, File, Form, Response, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -283,6 +283,39 @@ from google.cloud import storage, firestore
 
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-01-881fc83d76ea")
 BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME", f"gcs-photo-vault-{PROJECT_ID}")
+
+
+@app.get("/image_proxy")
+async def image_proxy(url: str):
+    """Proxy GCS images to the browser using GCP credentials if direct access fails."""
+    if not url:
+        raise HTTPException(status_code=400, detail="Missing url parameter")
+
+    bucket_name = None
+    blob_name = None
+    if url.startswith("gs://"):
+        parts = url[5:].split("/", 1)
+        if len(parts) == 2:
+            bucket_name, blob_name = parts[0], parts[1]
+    elif "storage.googleapis.com/" in url:
+        parts = url.split("storage.googleapis.com/", 1)[1].split("/", 1)
+        if len(parts) == 2:
+            bucket_name, blob_name = parts[0], parts[1]
+
+    if bucket_name and blob_name:
+        blob_name = re.sub(r"[\*\.\,><`\]]+$", "", blob_name)
+        try:
+            storage_client = storage.Client(project=PROJECT_ID)
+            bucket = storage_client.bucket(bucket_name)
+            blob = bucket.blob(blob_name)
+            content = blob.download_as_bytes()
+            content_type = blob.content_type or "image/jpeg"
+            return Response(content=content, media_type=content_type)
+        except Exception as e:
+            print(f"Image proxy error for {bucket_name}/{blob_name}: {e}")
+            raise HTTPException(status_code=404, detail="Image not found")
+
+    raise HTTPException(status_code=400, detail="Invalid storage URL")
 
 
 @app.post("/upload")
