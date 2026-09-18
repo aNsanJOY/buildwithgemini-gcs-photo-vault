@@ -1035,9 +1035,33 @@ function flattenText(messages) {
 function renderReply(b, parts) {
   b.textContent = "";
   const texts = parts.filter(p => p && (p.kind === "text" || (!p.kind && p.text))).map(p => p.text || "");
-  const a2ui = parts.filter(p => p && p.kind === "a2ui" && p.data).map(p => p.data);
+  let a2ui = parts.filter(p => p && p.kind === "a2ui" && p.data).map(p => p.data);
 
-  const textStr = texts.join("\n").trim();
+  let textStr = texts.join("\n").trim();
+
+  // Client-side defense: extract any <a2ui-json> or <a2a_datapart_json> tags if present in text
+  if (textStr.includes("<a2ui-json>") || textStr.includes("<a2a_datapart_json>")) {
+    const extraMsgs = [];
+    textStr = textStr.replace(/<a2ui-json>\s*([\s\S]*?)\s*<\/a2ui-json>/gi, (match, p1) => {
+      try {
+        const val = JSON.parse(p1);
+        if (Array.isArray(val)) extraMsgs.push(...val);
+        else if (val) extraMsgs.push(val);
+      } catch(e) {}
+      return "";
+    }).replace(/<a2a_datapart_json>\s*([\s\S]*?)\s*<\/a2a_datapart_json>/gi, (match, p1) => {
+      try {
+        const val = JSON.parse(p1);
+        const data = val.data || val;
+        if (Array.isArray(data)) extraMsgs.push(...data);
+        else if (data) extraMsgs.push(data);
+      } catch(e) {}
+      return "";
+    }).trim();
+    if (extraMsgs.length > 0) {
+      a2ui = a2ui.concat(extraMsgs);
+    }
+  }
 
   // Extract storage or http/gs URLs to present interactive image/video cards
   const urlRegex = /(https:\/\/storage\.googleapis\.com\/[^\s"')]+|gs:\/\/[^\s"')]+)/gi;

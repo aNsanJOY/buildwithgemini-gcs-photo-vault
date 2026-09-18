@@ -8,7 +8,7 @@ import os
 from typing import Any
 from google.cloud import firestore
 
-FIRESTORE_PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-01-881fc83d76ea")
+FIRESTORE_PROJECT_ID = "qwiklabs-gcp-01-881fc83d76ea"
 COLLECTION_NAME = "photo_memories"
 
 

@@ -24,7 +24,9 @@ Run:
   python main.py                 # -> http://localhost:8080
 """
 
+import json
 import os
+import re
 import uuid
 
 import google.auth
@@ -38,6 +40,7 @@ from a2a.types import (
     Part,
     Role,
     TaskArtifactUpdateEvent,
+    TaskStatusUpdateEvent,
     TextPart,
     TransportProtocol,
 )
@@ -112,6 +115,83 @@ async def _get_card(client: httpx.AsyncClient) -> AgentCard:
     return _card
 
 
+_A2UI_KEYS = ("beginRendering", "surfaceUpdate", "dataModelUpdate", "deleteSurface")
+
+
+def _extract_a2ui_from_text(text: str) -> tuple[list[dict], str]:
+    """Extract A2UI JSON messages from text and return (a2ui_messages, clean_text)."""
+    if not any(k in text for k in _A2UI_KEYS):
+        return [], text
+
+    a2ui_messages = []
+
+    def _parse_and_collect(raw_json_str: str):
+        try:
+            val = json.loads(raw_json_str)
+            if isinstance(val, list):
+                a2ui_messages.extend(val)
+            elif isinstance(val, dict):
+                a2ui_messages.append(val)
+        except Exception:
+            decoder = json.JSONDecoder()
+            idx = 0
+            n = len(raw_json_str)
+            while idx < n:
+                while idx < n and raw_json_str[idx] not in "{[":
+                    idx += 1
+                if idx >= n:
+                    break
+                try:
+                    v, end = decoder.raw_decode(raw_json_str, idx)
+                    if isinstance(v, list):
+                        a2ui_messages.extend(v)
+                    elif isinstance(v, dict):
+                        a2ui_messages.append(v)
+                    idx = end
+                except Exception:
+                    idx += 1
+
+    working = text
+
+    def repl_a2ui(m):
+        _parse_and_collect(m.group(1).strip())
+        return ""
+
+    def repl_datapart(m):
+        raw = m.group(1).strip()
+        try:
+            val = json.loads(raw)
+            if isinstance(val, dict) and "data" in val:
+                d = val["data"]
+                if isinstance(d, list):
+                    a2ui_messages.extend(d)
+                elif isinstance(d, dict):
+                    a2ui_messages.append(d)
+            else:
+                _parse_and_collect(raw)
+        except Exception:
+            _parse_and_collect(raw)
+        return ""
+
+    working = re.sub(r"<a2ui-json>\s*([\s\S]*?)\s*</a2ui-json>", repl_a2ui, working, flags=re.IGNORECASE)
+    working = re.sub(r"<a2a_datapart_json>\s*([\s\S]*?)\s*</a2a_datapart_json>", repl_datapart, working, flags=re.IGNORECASE)
+
+    if not a2ui_messages:
+        def repl_codeblock(m):
+            code = m.group(1).strip()
+            if any(k in code for k in _A2UI_KEYS):
+                before_count = len(a2ui_messages)
+                _parse_and_collect(code)
+                if len(a2ui_messages) > before_count:
+                    return ""
+            return m.group(0)
+
+        working = re.sub(r"```(?:json)?\s*([\s\S]*?)\s*```", repl_codeblock, working, flags=re.IGNORECASE)
+
+    clean_text = re.sub(r"\n\s*\n\s*\n", "\n\n", working).strip()
+    return a2ui_messages, clean_text
+
+
 def _extract_parts(parts: list) -> list[dict]:
     """Turn A2A response parts into structured parts for the chat UI.
 
@@ -124,7 +204,11 @@ def _extract_parts(parts: list) -> list[dict]:
     for p in parts:
         root = getattr(p, "root", p)
         if isinstance(root, TextPart) and getattr(root, "text", None):
-            out.append({"kind": "text", "text": root.text})
+            a2ui_msgs, clean_text = _extract_a2ui_from_text(root.text)
+            if clean_text:
+                out.append({"kind": "text", "text": clean_text})
+            for m in a2ui_msgs:
+                out.append({"kind": "a2ui", "data": m})
         elif getattr(root, "data", None) is not None:
             meta = getattr(root, "metadata", None) or {}
             mime = meta.get("mimeType") if isinstance(meta, dict) else None
@@ -178,10 +262,13 @@ async def chat(req: Request):
                 got_artifact_update = True
                 parts.extend(_extract_parts(update.artifact.parts))
 
-        # Non-streaming fallback: pull parts from the final task's artifacts.
+        # Fallback: pull parts from final task artifacts or status message if empty
         if not got_artifact_update and last_task is not None:
             for artifact in getattr(last_task, "artifacts", None) or []:
                 parts.extend(_extract_parts(artifact.parts))
+            if not parts and getattr(last_task, "status", None) and getattr(last_task.status, "message", None):
+                msg_parts = getattr(last_task.status.message, "parts", []) or []
+                parts.extend(_extract_parts(msg_parts))
 
     if not parts:
         # The turn produced no text or UI (e.g. the agent only ran tools, or a
