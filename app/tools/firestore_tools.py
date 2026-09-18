@@ -16,6 +16,81 @@ def _get_firestore_client() -> firestore.Client:
     return firestore.Client(project=FIRESTORE_PROJECT_ID)
 
 
+def sync_gcs_and_firestore() -> dict[str, Any]:
+    """Ensures Firestore records and GCS bucket objects are 100% in sync:
+    1. Removes duplicate Firestore documents pointing to the same GCS blob.
+    2. Auto-creates Firestore records for any GCS blobs that have no Firestore document.
+    3. Removes orphaned Firestore documents that point to non-existent GCS blobs.
+    4. Synchronizes storage class values between GCS blob and Firestore document.
+    """
+    db = _get_firestore_client()
+    try:
+        from google.cloud import storage
+        storage_client = storage.Client(project=FIRESTORE_PROJECT_ID)
+        bucket = storage_client.bucket(f"gcs-photo-vault-{FIRESTORE_PROJECT_ID}")
+        blobs = {b.name: b for b in bucket.list_blobs()}
+    except Exception as e:
+        print(f"Sync error accessing GCS: {e}")
+        return {"status": "error", "message": str(e)}
+
+    docs = list(db.collection(COLLECTION_NAME).stream())
+    blob_to_docs = {}
+
+    for d in docs:
+        data = d.to_dict() or {}
+        guri = data.get("gcs_uri", "")
+        purl = data.get("public_url", "")
+        
+        matched_blob_name = None
+        for bname in blobs.keys():
+            if bname in guri or bname in purl or bname.split('/')[-1] in guri or bname.split('/')[-1] in purl:
+                matched_blob_name = bname
+                break
+        
+        if matched_blob_name:
+            if matched_blob_name not in blob_to_docs:
+                blob_to_docs[matched_blob_name] = []
+            blob_to_docs[matched_blob_name].append((d, data))
+        else:
+            print(f"Removing orphaned Firestore doc: {d.id}")
+            d.reference.delete()
+
+    for bname, doc_list in blob_to_docs.items():
+        if len(doc_list) > 1:
+            primary = next((item for item in doc_list if item[0].id.startswith("photo_upload_")), doc_list[0])
+            for d, data in doc_list:
+                if d.id != primary[0].id:
+                    print(f"Deleting duplicate Firestore doc: {d.id}")
+                    d.reference.delete()
+
+    for bname, blob in blobs.items():
+        doc_pair = blob_to_docs.get(bname)
+        if doc_pair:
+            primary_doc, data = doc_pair[0]
+            blob_class = (blob.storage_class or "STANDARD").upper()
+            doc_class = (data.get("storage_class") or "").upper()
+            if doc_class != blob_class:
+                primary_doc.reference.update({"storage_class": blob_class})
+        else:
+            filename = bname.split('/')[-1]
+            photo_id = f"photo_{filename.rsplit('.', 1)[0]}"
+            doc_data = {
+                "photo_id": photo_id,
+                "filename": filename,
+                "title": filename.rsplit('.', 1)[0].replace('_', ' ').title(),
+                "gcs_uri": f"gs://gcs-photo-vault-{FIRESTORE_PROJECT_ID}/{bname}",
+                "public_url": f"https://storage.googleapis.com/gcs-photo-vault-{FIRESTORE_PROJECT_ID}/{bname}",
+                "storage_class": (blob.storage_class or "STANDARD").upper(),
+                "special_moment": "GCS Media",
+                "tagged_friends": [],
+                "tags": ["gcs", "media"],
+                "uploaded_at": blob.time_created.isoformat() if blob.time_created else "2026-09-18T16:00:00Z",
+            }
+            db.collection(COLLECTION_NAME).document(photo_id).set(doc_data)
+
+    return {"status": "success", "message": "Firestore and GCS synchronized."}
+
+
 def list_photo_memories(
     friend_name: str = "", storage_class: str = "", tag: str = ""
 ) -> list[dict[str, Any]]:
@@ -29,6 +104,11 @@ def list_photo_memories(
     Returns:
         A list of photo memory records matching the query criteria.
     """
+    try:
+        sync_gcs_and_firestore()
+    except Exception as e:
+        print(f"Auto-sync warning in list_photo_memories: {e}")
+
     db = _get_firestore_client()
     docs = db.collection(COLLECTION_NAME).stream()
     results = []
