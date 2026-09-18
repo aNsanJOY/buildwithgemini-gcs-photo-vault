@@ -196,10 +196,10 @@ def update_photo_storage_class(
 
 
 def delete_photo_memories(photo_ids: list[str]) -> dict[str, Any]:
-    """Delete multiple photo memory records from Firestore and GCS.
+    """Delete multiple photo memory records from Firestore and GCS bucket.
 
     Args:
-        photo_ids: List of photo document IDs or titles to delete (e.g. ['photo_001', 'photo_002']).
+        photo_ids: List of photo document IDs, filenames, or titles to delete (e.g. ['photo_001', 'generated_video_1789749670']).
 
     Returns:
         A dictionary with deletion status and count of deleted records.
@@ -208,6 +208,7 @@ def delete_photo_memories(photo_ids: list[str]) -> dict[str, Any]:
     deleted_count = 0
     deleted_ids = []
 
+    # 1. Delete matching Firestore documents
     for pid in photo_ids:
         doc_ref = db.collection(COLLECTION_NAME).document(pid)
         if doc_ref.get().exists:
@@ -227,6 +228,7 @@ def delete_photo_memories(photo_ids: list[str]) -> dict[str, Any]:
                 for d in docs:
                     data = d.to_dict() or {}
                     if pid.lower() in (
+                        d.id.lower(),
                         data.get("filename", "").lower(),
                         data.get("title", "").lower(),
                         data.get("photo_id", "").lower(),
@@ -235,9 +237,26 @@ def delete_photo_memories(photo_ids: list[str]) -> dict[str, Any]:
                         deleted_count += 1
                         deleted_ids.append(d.id)
 
+    # 2. Delete matching GCS Blobs
+    try:
+        from google.cloud import storage
+        storage_client = storage.Client(project=FIRESTORE_PROJECT_ID)
+        bucket = storage_client.bucket(f"gcs-photo-vault-{FIRESTORE_PROJECT_ID}")
+        blobs = list(bucket.list_blobs())
+        for blob in blobs:
+            for pid in photo_ids:
+                clean_pid = pid.lower().replace(".mp4", "").replace(".jpg", "").replace(".png", "")
+                if clean_pid in blob.name.lower():
+                    blob.delete()
+                    if pid not in deleted_ids:
+                        deleted_count += 1
+                        deleted_ids.append(pid)
+    except Exception as e:
+        print(f"Error deleting GCS blob in delete_photo_memories: {e}")
+
     return {
         "status": "success",
-        "message": f"Deleted {deleted_count} photo memory record(s).",
+        "message": f"Deleted {deleted_count} photo/video memory record(s) and GCS blob(s).",
         "deleted_count": deleted_count,
         "deleted_ids": deleted_ids,
     }
